@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Navigation } from "@/components/custom/navigation";
-import { Gamepad2, Lock, Zap, Flame, Skull, Heart } from "lucide-react";
+import { Gamepad2, Lock, Zap, Flame, Skull, Heart, Users } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 
@@ -134,6 +135,17 @@ export default function GamesPage() {
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
               {games.length} jogos épicos para transformar qualquer festa em uma experiência inesquecível
             </p>
+          </div>
+
+          {/* Friends Button */}
+          <div className="max-w-4xl mx-auto mb-8 flex justify-end">
+            <Link
+              href="/friends"
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#00FF00]/50 rounded-xl transition-all"
+            >
+              <Users className="w-5 h-5 text-[#00FF00]" />
+              <span className="font-medium">Minhas Listas de Amigos</span>
+            </Link>
           </div>
 
           {/* Free vs Premium Info */}

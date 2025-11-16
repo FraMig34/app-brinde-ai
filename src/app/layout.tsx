@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -11,8 +12,28 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Brinde.AI - Jogos de Bebida Inteligentes",
-  description: "A plataforma definitiva para jogos de bebida e drinks personalizados com IA",
+  title: "Brinde.AI - Jogos de Bebida Inteligentes com IA",
+  description: "A plataforma definitiva para jogos de bebida e drinks personalizados com IA. Mais de 10 jogos épicos, receitas inteligentes e diversão garantida.",
+  keywords: ["jogos de bebida", "drinks", "IA", "festas", "receitas", "brinde", "diversão"],
+  authors: [{ name: "Brinde.AI" }],
+  creator: "Brinde.AI",
+  publisher: "Brinde.AI",
+  robots: "index, follow",
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "https://brinde.ai",
+    title: "Brinde.AI - Jogos de Bebida Inteligentes",
+    description: "Transforme suas festas em experiências inesquecíveis com jogos de bebida e drinks personalizados por IA",
+    siteName: "Brinde.AI",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Brinde.AI - Jogos de Bebida Inteligentes",
+    description: "Transforme suas festas em experiências inesquecíveis",
+  },
+  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
+  themeColor: "#00FF00",
 };
 
 export default function RootLayout({
@@ -24,10 +45,12 @@ export default function RootLayout({
     <html lang="pt-BR">
       <head>
         <Script src="/lasy-bridge.js" strategy="beforeInteractive" />
+        <link rel="canonical" href="https://brinde.ai" />
       </head>
       <body className={`${inter.variable} font-inter antialiased`}>
         <AuthProvider>
           {children}
+          <Toaster position="top-right" richColors />
         </AuthProvider>
       </body>
     </html>

@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { AgeVerificationModal } from "@/components/custom/age-verification-modal";
 import { Navigation } from "@/components/custom/navigation";
-import { Sparkles, Gamepad2, Wine, BookOpen } from "lucide-react";
+import { Footer } from "@/components/custom/footer";
+import { Sparkles, Gamepad2, Wine, BookOpen, Zap, Shield, Users } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
   const [isAgeVerified, setIsAgeVerified] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const verified = localStorage.getItem("age_verified");
@@ -17,6 +19,7 @@ export default function Home() {
     } else {
       setShowModal(true);
     }
+    setIsLoading(false);
   }, []);
 
   const handleAgeVerification = (verified: boolean) => {
@@ -26,6 +29,17 @@ export default function Home() {
       localStorage.setItem("age_verified", "true");
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-[#00FF00]/20 border-t-[#00FF00] rounded-full animate-spin" />
+          <p className="text-gray-400 animate-pulse">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAgeVerified) {
     return (
@@ -41,25 +55,29 @@ export default function Home() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative px-4 pt-24 pb-16 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00FF00]/10 border border-[#00FF00]/20 mb-8">
-            <Sparkles className="w-4 h-4 text-[#00FF00]" />
+      <section className="relative px-4 pt-24 pb-16 sm:px-6 lg:px-8 overflow-hidden">
+        {/* Animated background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#00FF00]/5 via-transparent to-transparent opacity-50 animate-pulse" />
+        
+        <div className="max-w-7xl mx-auto text-center relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00FF00]/10 border border-[#00FF00]/20 mb-8 animate-fade-in">
+            <Sparkles className="w-4 h-4 text-[#00FF00] animate-pulse" />
             <span className="text-sm text-[#00FF00] font-medium">Transforme suas festas em experiências inesquecíveis</span>
           </div>
           
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-[#00FF00] to-white bg-clip-text text-transparent">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-[#00FF00] to-white bg-clip-text text-transparent animate-fade-in-up">
             Brinde.AI
           </h1>
           
-          <p className="text-xl sm:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto">
+          <p className="text-xl sm:text-2xl text-gray-400 mb-12 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
             A plataforma definitiva para jogos de bebida inteligentes e drinks personalizados com IA
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-up animation-delay-400">
             <Link
               href="/games"
               className="group relative px-8 py-4 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-bold text-lg hover:bg-[#00FF00]/90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(0,255,0,0.3)] w-full sm:w-auto"
+              aria-label="Explorar jogos de bebida"
             >
               <span className="relative z-10">Explorar Jogos</span>
             </Link>
@@ -67,6 +85,7 @@ export default function Home() {
             <Link
               href="/drinks/create"
               className="px-8 py-4 bg-white/5 text-white rounded-xl font-bold text-lg hover:bg-white/10 transition-all duration-300 border border-white/10 hover:border-[#00FF00]/50 w-full sm:w-auto"
+              aria-label="Criar drinks personalizados"
             >
               Criar Drinks
             </Link>
@@ -74,9 +93,42 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Stats Section */}
+      <section className="px-4 py-12 sm:px-6 lg:px-8 border-y border-white/10">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="text-4xl font-bold text-[#00FF00] mb-2">10+</div>
+              <div className="text-gray-400 text-sm">Jogos Épicos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl font-bold text-[#00FF00] mb-2">1000+</div>
+              <div className="text-gray-400 text-sm">Receitas de Drinks</div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl font-bold text-[#00FF00] mb-2">50k+</div>
+              <div className="text-gray-400 text-sm">Usuários Ativos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-4xl font-bold text-[#00FF00] mb-2">4.9★</div>
+              <div className="text-gray-400 text-sm">Avaliação Média</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Grid */}
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Tudo que você precisa para festas épicas
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Recursos profissionais para transformar qualquer reunião em uma experiência inesquecível
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Feature 1 - Jogos */}
             <div className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl p-8 border border-white/10 hover:border-[#00FF00]/50 transition-all duration-300 hover:scale-105">
@@ -182,6 +234,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Benefits Section */}
+      <section className="px-4 py-16 sm:px-6 lg:px-8 bg-white/[0.02]">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-[#00FF00]/10 rounded-2xl flex items-center justify-center mb-4">
+                <Zap className="w-8 h-8 text-[#00FF00]" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Rápido e Fácil</h3>
+              <p className="text-gray-400">
+                Configure seus jogos em segundos e comece a diversão imediatamente
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-[#00FF00]/10 rounded-2xl flex items-center justify-center mb-4">
+                <Shield className="w-8 h-8 text-[#00FF00]" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Seguro e Privado</h3>
+              <p className="text-gray-400">
+                Seus dados são protegidos com criptografia de ponta a ponta
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-[#00FF00]/10 rounded-2xl flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-[#00FF00]" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Comunidade Ativa</h3>
+              <p className="text-gray-400">
+                Junte-se a milhares de usuários que já transformaram suas festas
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
@@ -195,6 +284,7 @@ export default function Home() {
             <Link
               href="/auth"
               className="inline-block px-8 py-4 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-bold text-lg hover:bg-[#00FF00]/90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(0,255,0,0.3)]"
+              aria-label="Começar gratuitamente"
             >
               Começar Gratuitamente
             </Link>
@@ -202,12 +292,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
-          <p>© 2024 Brinde.AI - Beba com responsabilidade. Proibido para menores de 18 anos.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

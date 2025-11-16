@@ -68,6 +68,7 @@ export function Navigation() {
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
+            aria-label="Toggle menu"
           >
             {isMenuOpen ? (
               <X className="w-6 h-6" />
