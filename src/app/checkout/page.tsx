@@ -78,9 +78,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const price = region === 'brasil' ? 'R$ 19,90' : '€ 4,99';
-  const currency = region === 'brasil' ? 'BRL' : 'EUR';
-
   return (
     <div className="min-h-screen bg-[#0D0D0D] text-white">
       <Navigation />
@@ -212,7 +209,7 @@ export default function CheckoutPage() {
                 <h3 className="text-lg font-bold">Pagamento Seguro</h3>
               </div>
               <p className="text-gray-400 text-sm">
-                Processado pelo Paga Keoto, plataforma líder em pagamentos seguros para Brasil e Portugal. Seus dados são protegidos com criptografia de ponta.
+                Processado pelo Stripe, plataforma líder em pagamentos seguros para Brasil e Portugal. Seus dados são protegidos com criptografia de ponta.
               </p>
             </div>
 
@@ -244,9 +241,8 @@ export default function CheckoutPage() {
             </div>
 
             <div className="bg-gradient-to-br from-[#00FF00]/5 to-transparent rounded-2xl p-6 border border-[#00FF00]/20">
-              <h3 className="text-lg font-bold mb-2">Garantia de 7 Dias</h3>
+              <h3 className="text-lg font-bold mb-2">
               <p className="text-gray-400 text-sm">
-                Não está satisfeito? Reembolsamos 100% do seu dinheiro nos primeiros 7 dias, sem perguntas.
               </p>
             </div>
           </div>
