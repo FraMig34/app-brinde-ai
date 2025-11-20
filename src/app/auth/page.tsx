@@ -50,6 +50,9 @@ export default function AuthPage() {
 
         // Criar conta com ou sem premium
         await signup(email, password, name, year, region, wantsPremium);
+        
+        // Login automático após cadastro
+        await login(email, password);
         router.push("/games");
       }
     } catch (err: any) {

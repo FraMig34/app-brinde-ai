@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Navigation } from "@/components/custom/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { 
   Camera, 
   Upload, 
@@ -15,10 +16,34 @@ import {
   Heart,
   Plus,
   X,
-  Check
+  Check,
+  Loader2,
+  Info,
+  TrendingUp,
+  Award
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+interface DrinkAnalysis {
+  name: string;
+  brand: string;
+  type: string;
+  alcoholContent: number;
+  volume: number;
+  confidence: number;
+  tasteProfile: {
+    sweetness: number;
+    bitterness: number;
+    citrus: number;
+    strength: number;
+    smoothness: number;
+  };
+  flavorNotes: string[];
+  category: string;
+  description: string;
+  pairingRecommendations: string[];
+}
 
 interface Drink {
   id: string;
@@ -26,8 +51,19 @@ interface Drink {
   brand: string;
   type: string;
   alcoholContent: number;
+  volume: number;
   image: string;
   addedAt: string;
+  tasteProfile?: {
+    sweetness: number;
+    bitterness: number;
+    citrus: number;
+    strength: number;
+    smoothness: number;
+  };
+  flavorNotes?: string[];
+  description?: string;
+  category?: string;
 }
 
 interface Recipe {
@@ -49,7 +85,7 @@ interface TastePreference {
 }
 
 export default function CreateDrinksPage() {
-  const { isAuthenticated, isPremium } = useAuth();
+  const { user, isAuthenticated, isPremium } = useAuth();
   const router = useRouter();
   const [inventory, setInventory] = useState<Drink[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -67,19 +103,11 @@ export default function CreateDrinksPage() {
   const [customRecipeName, setCustomRecipeName] = useState("");
   const [showNameModal, setShowNameModal] = useState(false);
   const [recipeToSave, setRecipeToSave] = useState<Recipe | null>(null);
+  const [selectedDrink, setSelectedDrink] = useState<Drink | null>(null);
+  const [showDrinkDetails, setShowDrinkDetails] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Simulação de identificação de bebida por IA
-  const mockDrinks = [
-    { name: "Absolut Vodka", brand: "Absolut", type: "Vodka", alcoholContent: 40 },
-    { name: "Jack Daniel's", brand: "Jack Daniel's", type: "Whiskey", alcoholContent: 40 },
-    { name: "Bacardi Rum", brand: "Bacardi", type: "Rum", alcoholContent: 37.5 },
-    { name: "Tanqueray Gin", brand: "Tanqueray", type: "Gin", alcoholContent: 43.1 },
-    { name: "Cointreau", brand: "Cointreau", type: "Licor", alcoholContent: 40 },
-    { name: "Baileys", brand: "Baileys", type: "Licor de Creme", alcoholContent: 17 },
-  ];
-
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!isAuthenticated) {
       alert("Faça login ou cadastre-se para usar a funcionalidade de reconhecimento de bebidas!");
       return;
@@ -90,25 +118,103 @@ export default function CreateDrinksPage() {
 
     setIsScanning(true);
 
-    // Simular processamento de IA
-    setTimeout(() => {
-      const randomDrink = mockDrinks[Math.floor(Math.random() * mockDrinks.length)];
-      const newDrink: Drink = {
-        id: Date.now().toString(),
-        ...randomDrink,
-        image: URL.createObjectURL(file),
-        addedAt: new Date().toISOString(),
+    try {
+      // Converter imagem para base64
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async () => {
+        const base64Image = reader.result as string;
+
+        try {
+          // Chamar API de análise
+          const response = await fetch("/api/analyze-drink", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ image: base64Image }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Erro ao analisar bebida");
+          }
+
+          const analysis: DrinkAnalysis = data.analysis;
+
+          // Criar objeto de bebida com análise completa
+          const newDrink: Drink = {
+            id: Date.now().toString(),
+            name: analysis.name,
+            brand: analysis.brand,
+            type: analysis.type,
+            alcoholContent: analysis.alcoholContent,
+            volume: analysis.volume,
+            image: base64Image,
+            addedAt: new Date().toISOString(),
+            tasteProfile: analysis.tasteProfile,
+            flavorNotes: analysis.flavorNotes,
+            description: analysis.description,
+            category: analysis.category,
+          };
+
+          // Salvar no Supabase se usuário estiver autenticado
+          if (user) {
+            try {
+              const { error } = await supabase.from("drinks").insert({
+                user_id: user.id,
+                name: newDrink.name,
+                brand: newDrink.brand,
+                type: newDrink.type,
+                alcohol_percentage: newDrink.alcoholContent,
+                volume: newDrink.volume,
+                image_url: newDrink.image,
+                taste_profile: newDrink.tasteProfile,
+                flavor_notes: newDrink.flavorNotes,
+                description: newDrink.description,
+                category: newDrink.category,
+              });
+
+              if (error) {
+                console.error("Erro ao salvar no Supabase:", error);
+              }
+            } catch (dbError) {
+              console.error("Erro de banco de dados:", dbError);
+            }
+          }
+
+          setInventory([...inventory, newDrink]);
+          setSelectedDrink(newDrink);
+          setShowDrinkDetails(true);
+          setIsScanning(false);
+
+        } catch (apiError) {
+          console.error("Erro na API:", apiError);
+          setIsScanning(false);
+          alert(
+            apiError instanceof Error 
+              ? apiError.message 
+              : "Erro ao identificar bebida. Tente tirar uma foto mais clara do rótulo."
+          );
+        }
       };
 
-      setInventory([...inventory, newDrink]);
+      reader.onerror = () => {
+        setIsScanning(false);
+        alert("Erro ao processar imagem");
+      };
+
+    } catch (error) {
+      console.error("Erro ao capturar imagem:", error);
       setIsScanning(false);
-      alert(`Bebida identificada: ${newDrink.name} - ${newDrink.brand}`);
-    }, 2000);
+      alert("Erro ao processar imagem");
+    }
   };
 
-  const handleGenerateRecipes = () => {
+  const handleGenerateRecipes = async () => {
     if (!isPremium) {
-      // Redirecionar para página de premium
       router.push("/premium");
       return;
     }
@@ -118,7 +224,7 @@ export default function CreateDrinksPage() {
       return;
     }
 
-    // Simulação de geração de receitas por IA
+    // Gerar receitas baseadas no perfil de sabor das bebidas
     const mockRecipes: Recipe[] = [
       {
         id: "1",
@@ -141,7 +247,7 @@ export default function CreateDrinksPage() {
       },
       {
         id: "2",
-        name: "Mojito",
+        name: "Mojito Clássico",
         ingredients: [
           { name: "Rum Branco", amount: "50ml" },
           { name: "Hortelã", amount: "10 folhas" },
@@ -183,8 +289,26 @@ export default function CreateDrinksPage() {
     setShowRecipes(true);
   };
 
-  const handleRemoveDrink = (id: string) => {
-    setInventory(inventory.filter((drink) => drink.id !== id));
+  const handleRemoveDrink = async (id: string) => {
+    const drink = inventory.find(d => d.id === id);
+    if (!drink) return;
+
+    if (!confirm(`Remover ${drink.name} do inventário?`)) return;
+
+    // Remover do Supabase se tiver user_id
+    if (user) {
+      try {
+        await supabase
+          .from("drinks")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("name", drink.name);
+      } catch (error) {
+        console.error("Erro ao remover do Supabase:", error);
+      }
+    }
+
+    setInventory(inventory.filter((d) => d.id !== id));
   };
 
   const handleRateRecipe = (recipeId: string, rating: number) => {
@@ -265,14 +389,14 @@ export default function CreateDrinksPage() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00FF00]/10 border border-[#00FF00]/20 mb-6">
             <Sparkles className="w-4 h-4 text-[#00FF00]" />
             <span className="text-sm text-[#00FF00] font-medium">
-              Powered by AI
+              Powered by AI - Análise Avançada de Bebidas
             </span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">
             Criar Drinks Personalizados
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Tire fotos das suas bebidas e receba receitas exclusivas baseadas no seu inventário e preferências
+            Tire fotos das suas bebidas e receba análise completa de sabor, marca e receitas exclusivas
           </p>
         </div>
 
@@ -301,13 +425,13 @@ export default function CreateDrinksPage() {
               >
                 {isScanning ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-[#00FF00] border-t-transparent rounded-full animate-spin" />
-                    Identificando...
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Analisando com IA...
                   </>
                 ) : (
                   <>
                     <Camera className="w-5 h-5" />
-                    Tirar Foto
+                    Tirar Foto e Analisar
                   </>
                 )}
               </button>
@@ -343,7 +467,11 @@ export default function CreateDrinksPage() {
                 {inventory.map((drink) => (
                   <div
                     key={drink.id}
-                    className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-[#00FF00]/50 transition-all"
+                    className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-[#00FF00]/50 transition-all cursor-pointer"
+                    onClick={() => {
+                      setSelectedDrink(drink);
+                      setShowDrinkDetails(true);
+                    }}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -351,18 +479,41 @@ export default function CreateDrinksPage() {
                         <p className="text-sm text-gray-400">{drink.brand}</p>
                       </div>
                       <button
-                        onClick={() => handleRemoveDrink(drink.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveDrink(drink.id);
+                        }}
                         className="text-red-400 hover:text-red-300 transition-colors"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
                     </div>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="px-2 py-1 bg-[#00FF00]/10 text-[#00FF00] rounded">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2 py-1 bg-[#00FF00]/10 text-[#00FF00] rounded text-xs">
                         {drink.type}
                       </span>
-                      <span className="text-gray-400">{drink.alcoholContent}%</span>
+                      {drink.category && (
+                        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-xs capitalize">
+                          {drink.category}
+                        </span>
+                      )}
                     </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <span>{drink.alcoholContent}%</span>
+                      <span>{drink.volume}ml</span>
+                    </div>
+                    {drink.flavorNotes && drink.flavorNotes.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {drink.flavorNotes.slice(0, 3).map((note, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs px-2 py-1 bg-white/5 rounded"
+                          >
+                            {note}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -546,6 +697,111 @@ export default function CreateDrinksPage() {
           </div>
         )}
       </div>
+
+      {/* Drink Details Modal */}
+      {showDrinkDetails && selectedDrink && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-[#0D0D0D] border border-white/10 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h3 className="text-3xl font-bold mb-2">{selectedDrink.name}</h3>
+                <p className="text-xl text-gray-400">{selectedDrink.brand}</p>
+              </div>
+              <button
+                onClick={() => setShowDrinkDetails(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {selectedDrink.description && (
+              <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-[#00FF00] mt-1 flex-shrink-0" />
+                  <p className="text-gray-300">{selectedDrink.description}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Tipo</p>
+                <p className="text-lg font-bold capitalize">{selectedDrink.type}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Categoria</p>
+                <p className="text-lg font-bold capitalize">{selectedDrink.category || "Standard"}</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Teor Alcoólico</p>
+                <p className="text-lg font-bold">{selectedDrink.alcoholContent}%</p>
+              </div>
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <p className="text-sm text-gray-400 mb-1">Volume</p>
+                <p className="text-lg font-bold">{selectedDrink.volume}ml</p>
+              </div>
+            </div>
+
+            {selectedDrink.tasteProfile && (
+              <div className="mb-6">
+                <h4 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-[#00FF00]" />
+                  Perfil de Sabor
+                </h4>
+                <div className="space-y-4">
+                  {Object.entries(selectedDrink.tasteProfile).map(([key, value]) => (
+                    <div key={key}>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-medium capitalize">
+                          {key === "sweetness" && "Doçura"}
+                          {key === "bitterness" && "Amargor"}
+                          {key === "citrus" && "Cítrico"}
+                          {key === "strength" && "Força"}
+                          {key === "smoothness" && "Suavidade"}
+                        </span>
+                        <span className="text-sm text-[#00FF00]">{value}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-[#00FF00] to-[#00FF00]/60 rounded-full transition-all duration-500"
+                          style={{ width: `${value}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedDrink.flavorNotes && selectedDrink.flavorNotes.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-[#00FF00]" />
+                  Notas de Sabor
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDrink.flavorNotes.map((note, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-2 bg-[#00FF00]/10 text-[#00FF00] rounded-lg border border-[#00FF00]/20 text-sm font-medium"
+                    >
+                      {note}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowDrinkDetails(false)}
+              className="w-full px-6 py-3 bg-[#00FF00] text-[#0D0D0D] rounded-xl font-bold hover:bg-[#00FF00]/90 transition-all"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Save Custom Recipe Modal */}
       {showNameModal && recipeToSave && (

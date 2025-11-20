@@ -29,6 +29,14 @@ export interface Subscription {
   created_at: string;
 }
 
+export interface TasteProfile {
+  sweetness: number;
+  bitterness: number;
+  citrus: number;
+  strength: number;
+  smoothness: number;
+}
+
 export interface Drink {
   id: string;
   user_id: string;
@@ -38,5 +46,9 @@ export interface Drink {
   volume: number;
   alcohol_percentage: number;
   image_url?: string;
+  taste_profile?: TasteProfile;
+  flavor_notes?: string[];
+  description?: string;
+  category?: string;
   created_at: string;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from "react";
 import { supabase } from "./supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -27,19 +27,110 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Email do único administrador do sistema
-const ADMIN_EMAIL = 'ruylhaoprincipal@gmail.com';
+// Emails com acesso ilimitado (admin + premium vitalício)
+const UNLIMITED_ACCESS_EMAILS = [
+  'ruylhaoprincipal@gmail.com',
+  'francisco.s.silva03@gmail.com',
+  'miguelbonvini@hotmail.com'
+];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadUserData = useCallback(async (userId: string, email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      // Se o usuário não existe na tabela, criar automaticamente
+      if (!data) {
+        const hasUnlimitedAccess = UNLIMITED_ACCESS_EMAILS.includes(email.toLowerCase());
+        
+        const { data: newUser, error: insertError } = await supabase
+          .from("users")
+          .upsert({
+            id: userId,
+            email,
+            name: email.split('@')[0], // Nome padrão baseado no email
+            birth_year: new Date().getFullYear() - 18, // Idade padrão 18 anos
+            region: 'brasil',
+            is_premium: hasUnlimitedAccess,
+          }, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          })
+          .select()
+          .single();
+
+        if (insertError && insertError.code !== '23505') throw insertError;
+
+        // Se houve erro de duplicata, buscar o usuário existente
+        if (insertError?.code === '23505') {
+          const { data: existingUser } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", userId)
+            .single();
+
+          if (existingUser) {
+            setUser({
+              id: existingUser.id,
+              email: existingUser.email,
+              name: existingUser.name,
+              birthYear: existingUser.birth_year,
+              region: existingUser.region,
+              isPremium: hasUnlimitedAccess || existingUser.is_premium || false,
+              isAdmin: email.toLowerCase() === 'ruylhaoprincipal@gmail.com',
+            });
+          }
+        } else if (newUser) {
+          setUser({
+            id: newUser.id,
+            email: newUser.email,
+            name: newUser.name,
+            birthYear: newUser.birth_year,
+            region: newUser.region,
+            isPremium: hasUnlimitedAccess || newUser.is_premium || false,
+            isAdmin: email.toLowerCase() === 'ruylhaoprincipal@gmail.com',
+          });
+        }
+      } else {
+        // Verificar se é um email com acesso ilimitado
+        const hasUnlimitedAccess = UNLIMITED_ACCESS_EMAILS.includes(email.toLowerCase());
+        
+        setUser({
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          birthYear: data.birth_year,
+          region: data.region,
+          // Usuários com acesso ilimitado sempre têm premium
+          isPremium: hasUnlimitedAccess || data.is_premium || false,
+          // Apenas o primeiro email é admin
+          isAdmin: email.toLowerCase() === 'ruylhaoprincipal@gmail.com',
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do usuário:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    let mounted = true;
+
     // Verificar sessão atual
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+      if (mounted && session?.user) {
         loadUserData(session.user.id, session.user.email || '');
-      } else {
+      } else if (mounted) {
         setLoading(false);
       }
     });
@@ -48,50 +139,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        loadUserData(session.user.id, session.user.email || '');
-      } else {
-        setUser(null);
-        setLoading(false);
+      if (mounted) {
+        if (session?.user) {
+          loadUserData(session.user.id, session.user.email || '');
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadUserData]);
 
-  const loadUserData = async (userId: string, email: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        // Verificar se é o email do admin
-        const isAdminUser = email === ADMIN_EMAIL;
-        
-        setUser({
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          birthYear: data.birth_year,
-          region: data.region,
-          // Admin sempre tem premium e acesso total
-          isPremium: isAdminUser || data.is_premium || false,
-          isAdmin: isAdminUser,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao carregar dados do usuário:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signup = async (
+  const signup = useCallback(async (
     email: string,
     password: string,
     name: string,
@@ -100,8 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     wantsPremium: boolean = false
   ) => {
     try {
-      // Verificar se é o email do admin
-      const isAdminUser = email === ADMIN_EMAIL;
+      // Verificar se é um email com acesso ilimitado
+      const hasUnlimitedAccess = UNLIMITED_ACCESS_EMAILS.includes(email.toLowerCase());
 
       // Criar usuário no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -112,18 +176,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Criar registro na tabela users
-        const { error: userError } = await supabase.from("users").insert({
+        // Usar upsert para evitar erro de duplicata
+        const { error: userError } = await supabase.from("users").upsert({
           id: authData.user.id,
           email,
           name,
           birth_year: birthYear,
           region,
-          // Admin sempre tem premium
-          is_premium: isAdminUser || wantsPremium,
+          // Usuários com acesso ilimitado sempre têm premium
+          is_premium: hasUnlimitedAccess || wantsPremium,
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: false
         });
 
-        if (userError) throw userError;
+        if (userError && userError.code !== '23505') throw userError;
 
         await loadUserData(authData.user.id, email);
       }
@@ -131,9 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Erro no cadastro:", error);
       throw new Error(error.message || "Erro ao criar conta");
     }
-  };
+  }, [loadUserData]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -149,30 +216,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Erro no login:", error);
       throw new Error(error.message || "Erro ao fazer login");
     }
-  };
+  }, [loadUserData]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
       setUser(null);
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    user,
+    isAuthenticated: !!user,
+    isPremium: user?.isPremium || false,
+    isAdmin: user?.isAdmin || false,
+    loading,
+    login,
+    logout,
+    signup,
+  }), [user, loading, login, logout, signup]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isPremium: user?.isPremium || false,
-        isAdmin: user?.isAdmin || false,
-        loading,
-        login,
-        logout,
-        signup,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

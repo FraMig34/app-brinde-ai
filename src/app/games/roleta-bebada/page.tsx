@@ -125,7 +125,8 @@ export default function RoletaBebadaPage() {
     setTimeout(() => {
       const normalizedRotation = totalRotation % 360;
       const segmentAngle = 360 / players.length;
-      const selectedIndex = Math.floor((360 - normalizedRotation + segmentAngle / 2) / segmentAngle) % players.length;
+      // CORREÇÃO: Invertida a fórmula para corresponder à seta no topo
+      const selectedIndex = Math.floor(normalizedRotation / segmentAngle) % players.length;
       
       const selectedPlayer = players[selectedIndex];
       const challengeList = challenges[difficulty];

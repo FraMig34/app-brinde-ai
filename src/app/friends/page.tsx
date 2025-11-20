@@ -23,7 +23,7 @@ interface FriendMember {
 }
 
 export default function FriendsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
   const [lists, setLists] = useState<FriendList[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,12 +33,16 @@ export default function FriendsPage() {
   const [newMemberName, setNewMemberName] = useState("");
 
   useEffect(() => {
+    // Aguarda o carregamento da autenticação antes de redirecionar
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       router.push("/auth");
       return;
     }
+    
     loadLists();
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   const loadLists = async () => {
     if (!user) return;
@@ -155,15 +159,23 @@ export default function FriendsPage() {
     if (!confirm("Remover este amigo da lista?")) return;
 
     try {
-      // Nota: Como DELETE não é permitido, vamos usar UPDATE para marcar como removido
-      // Ou simplesmente recarregar após tentar
+      // Remover membro do banco
+      const { error } = await supabase
+        .from("friend_list_members")
+        .delete()
+        .eq("id", memberId);
+
+      if (error) throw error;
+
       await loadLists();
     } catch (error) {
-      console.error("Erro ao remover membro:", error);
+      console.error("Erro ao remover membro da lista:", error);
+      alert("Erro ao remover membro da lista");
     }
   };
 
-  if (loading) {
+  // Tela de carregamento enquanto verifica autenticação
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#0D0D0D] text-white">
         <Navigation />

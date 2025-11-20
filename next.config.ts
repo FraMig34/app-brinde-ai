@@ -189,6 +189,9 @@ const nextConfig: NextConfig = {
     // Tamanhos otimizados para diferentes dispositivos
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    
+    // Cache otimizado
+    minimumCacheTTL: 60,
   },
   
   // Configuração experimental para melhor performance
@@ -196,15 +199,71 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
   
-  // Headers CORS para permitir acesso da plataforma Lasy
+  // Otimizações de performance
+  compress: true,
+  poweredByHeader: false,
+  
+  // Headers de segurança e CORS
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: '/:path*',
+        headers: [
+          // Segurança - Content Security Policy
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live https://*.vercel.app",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.supabase.co https://*.supabase.com https://api.openai.com wss://*.supabase.co",
+              "frame-ancestors 'self'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+          // Segurança - X-Frame-Options (proteção contra clickjacking)
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          // Segurança - X-Content-Type-Options (previne MIME sniffing)
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          // Segurança - Referrer Policy
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          // Segurança - Permissions Policy
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+          // Segurança - X-XSS-Protection
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          // Segurança - Strict-Transport-Security (HSTS)
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+        ],
+      },
+      {
+        source: '/api/:path*',
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: '*'
+            value: process.env.NODE_ENV === 'production' 
+              ? 'https://brinde.ai' 
+              : '*'
           },
           {
             key: 'Access-Control-Allow-Methods',
@@ -212,11 +271,38 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization, X-Requested-With, Accept'
+            value: 'Content-Type, Authorization, X-Requested-With, Accept, X-CSRF-Token'
           },
           {
             key: 'Access-Control-Allow-Credentials',
             value: 'true'
+          },
+          // Rate limiting headers
+          {
+            key: 'X-RateLimit-Limit',
+            value: '100'
+          },
+          {
+            key: 'X-RateLimit-Remaining',
+            value: '99'
+          },
+        ]
+      },
+      {
+        source: '/_next/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          },
+        ]
+      },
+      {
+        source: '/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
           }
         ]
       }
